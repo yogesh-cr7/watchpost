@@ -1,0 +1,8 @@
+# core
+requests
+pyyaml
+pytest
+
+# optional, added when the LLM diagnosis flag lands:
+# anthropic
+# python-dotenv

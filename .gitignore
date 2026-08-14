@@ -1,0 +1,17 @@
+# python
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# secrets
+.env
+
+# local check history, not something to publish
+data/history.db
+
+# editor
+.vscode/
+.idea/
