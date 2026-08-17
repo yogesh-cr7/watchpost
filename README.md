@@ -22,8 +22,8 @@ failure and explain it in plain English.
 
 ## plan
 
-- [ ] YAML config: endpoints to watch, expected status code, timeout, check interval
-- [ ] polling engine that hits each endpoint and records status + latency
+- [x] YAML config: endpoints to watch, expected status code, timeout, check interval
+- [x] polling engine that hits each endpoint and records status + latency
 - [ ] local history (sqlite) so uptime/latency show trends, not just the last check
 - [ ] CLI report command - current status and recent incidents per endpoint
 - [ ] rule-based alerting when a check fails or latency crosses a threshold
@@ -35,8 +35,19 @@ failure and explain it in plain English.
 
 ## setup
 
-Nothing to run yet - this is just the scaffold.
+```bash
+pip install -r requirements.txt
+```
+
+Try it against the bundled demo config (a few public APIs, no auth needed):
+
+```bash
+python -c "from watchpost.config import load_config; from watchpost.checker import check_all; [print(r) for r in check_all(load_config('config.yaml'))]"
+```
+
+No CLI command yet - that lands with the report command.
 
 ## status
 
-Day one. Scaffolding only, no code.
+Config loader and polling engine done, with tests. No CLI, storage, or
+alerting yet.

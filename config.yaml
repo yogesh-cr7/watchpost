@@ -1,0 +1,17 @@
+# default watch list - public APIs so this repo runs out of the box
+# without needing your own service to point it at
+endpoints:
+  - name: github-status
+    url: https://www.githubstatus.com/api/v2/status.json
+    expected_status: 200
+    timeout: 5
+
+  - name: jsonplaceholder
+    url: https://jsonplaceholder.typicode.com/posts/1
+    expected_status: 200
+    timeout: 5
+
+  - name: github-api
+    url: https://api.github.com
+    expected_status: 200
+    timeout: 5
