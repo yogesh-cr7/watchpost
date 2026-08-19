@@ -1,0 +1,96 @@
+from watchpost.checker import CheckResult
+from watchpost.history import connect, recent_checks, save_all, save_result
+
+
+def make_result(name="api", success=True, status_code=200, latency_ms=100.0, timestamp=1000.0, error=None):
+    return CheckResult(
+        endpoint_name=name,
+        url="https://example.com",
+        success=success,
+        status_code=status_code,
+        latency_ms=latency_ms,
+        timestamp=timestamp,
+        error=error,
+    )
+
+
+def test_creates_db_file_and_parent_dir(tmp_path):
+    db_path = tmp_path / "nested" / "history.db"
+    conn = connect(db_path)
+    assert db_path.exists()
+    conn.close()
+
+
+def test_save_and_read_round_trip(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    save_result(conn, make_result())
+
+    rows = recent_checks(conn, "api")
+    assert len(rows) == 1
+    saved = rows[0]
+    assert saved.endpoint_name == "api"
+    assert saved.status_code == 200
+    assert saved.success is True
+    assert saved.latency_ms == 100.0
+    assert saved.timestamp == 1000.0
+    conn.close()
+
+
+def test_recent_checks_orders_newest_first(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    save_result(conn, make_result(timestamp=1000.0))
+    save_result(conn, make_result(timestamp=3000.0))
+    save_result(conn, make_result(timestamp=2000.0))
+
+    rows = recent_checks(conn, "api")
+    assert [r.timestamp for r in rows] == [3000.0, 2000.0, 1000.0]
+    conn.close()
+
+
+def test_recent_checks_respects_limit(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    for i in range(5):
+        save_result(conn, make_result(timestamp=float(i)))
+
+    rows = recent_checks(conn, "api", limit=2)
+    assert len(rows) == 2
+    conn.close()
+
+
+def test_recent_checks_filters_by_endpoint(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    save_result(conn, make_result(name="a", timestamp=1.0))
+    save_result(conn, make_result(name="b", timestamp=2.0))
+
+    rows = recent_checks(conn, "a")
+    assert len(rows) == 1
+    assert rows[0].endpoint_name == "a"
+    conn.close()
+
+
+def test_recent_checks_unknown_endpoint_returns_empty(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    rows = recent_checks(conn, "nothing-here")
+    assert rows == []
+    conn.close()
+
+
+def test_save_all_writes_every_result(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    results = [make_result(name="a", timestamp=1.0), make_result(name="b", timestamp=2.0)]
+    save_all(conn, results)
+
+    assert len(recent_checks(conn, "a")) == 1
+    assert len(recent_checks(conn, "b")) == 1
+    conn.close()
+
+
+def test_stores_failure_with_error_message(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    save_result(conn, make_result(success=False, status_code=None, latency_ms=None, error="timed out"))
+
+    saved = recent_checks(conn, "api")[0]
+    assert saved.success is False
+    assert saved.status_code is None
+    assert saved.error == "timed out"
+    conn.close()

@@ -24,7 +24,7 @@ failure and explain it in plain English.
 
 - [x] YAML config: endpoints to watch, expected status code, timeout, check interval
 - [x] polling engine that hits each endpoint and records status + latency
-- [ ] local history (sqlite) so uptime/latency show trends, not just the last check
+- [x] local history (sqlite) so uptime/latency show trends, not just the last check
 - [ ] CLI report command - current status and recent incidents per endpoint
 - [ ] rule-based alerting when a check fails or latency crosses a threshold
 - [ ] optional webhook alert (Slack/Discord) behind a flag
@@ -39,15 +39,25 @@ failure and explain it in plain English.
 pip install -r requirements.txt
 ```
 
-Try it against the bundled demo config (a few public APIs, no auth needed):
+Try it against the bundled demo config (a few public APIs, no auth needed)
+and save the results to a local history file:
 
 ```bash
-python -c "from watchpost.config import load_config; from watchpost.checker import check_all; [print(r) for r in check_all(load_config('config.yaml'))]"
+python -c "
+from watchpost.config import load_config
+from watchpost.checker import check_all
+from watchpost.history import connect, save_all
+results = check_all(load_config('config.yaml'))
+save_all(connect(), results)
+[print(r) for r in results]
+"
 ```
 
+Every run appends to `data/history.db` (sqlite, gitignored) so uptime and
+latency build up a real history instead of just showing the last check.
 No CLI command yet - that lands with the report command.
 
 ## status
 
-Config loader and polling engine done, with tests. No CLI, storage, or
-alerting yet.
+Config loader, polling engine, and local history storage done, with
+tests. No CLI, alerting, or diagnosis yet.

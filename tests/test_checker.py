@@ -17,6 +17,7 @@ def test_successful_check():
     assert result.status_code == 200
     assert result.error is None
     assert result.latency_ms >= 0
+    assert result.timestamp > 0
 
 
 def test_wrong_status_code_is_a_failure():
