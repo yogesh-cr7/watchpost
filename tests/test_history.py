@@ -1,17 +1,6 @@
-from watchpost.checker import CheckResult
 from watchpost.history import connect, recent_checks, save_all, save_result
 
-
-def make_result(name="api", success=True, status_code=200, latency_ms=100.0, timestamp=1000.0, error=None):
-    return CheckResult(
-        endpoint_name=name,
-        url="https://example.com",
-        success=success,
-        status_code=status_code,
-        latency_ms=latency_ms,
-        timestamp=timestamp,
-        error=error,
-    )
+from helpers import make_result
 
 
 def test_creates_db_file_and_parent_dir(tmp_path):
