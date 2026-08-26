@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
@@ -12,6 +13,7 @@ class Endpoint:
     expected_status: int = 200
     timeout: float = 5.0
     interval: int = 60  # seconds between checks - not wired up until the scheduler lands
+    latency_threshold_ms: Optional[float] = None  # unset = never flag a slow check
 
 
 class ConfigError(Exception):
@@ -49,6 +51,7 @@ def load_config(path="config.yaml"):
             expected_status=entry.get("expected_status", 200),
             timeout=entry.get("timeout", 5.0),
             interval=entry.get("interval", 60),
+            latency_threshold_ms=entry.get("latency_threshold_ms"),
         ))
 
     return endpoints

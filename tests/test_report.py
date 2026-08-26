@@ -117,3 +117,42 @@ def test_format_report_handles_connection_failure_with_no_status_code(tmp_path):
     assert "down" in text
     assert "connection failed" in text
     conn.close()
+
+
+def test_slow_check_reports_slow_status_not_up(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    endpoint = Endpoint(name="sluggish", url="https://example.com", latency_threshold_ms=200)
+    save_all(conn, [make_result(name="sluggish", timestamp=1.0, success=True, latency_ms=900.0, slow=True)])
+
+    r = endpoint_report(conn, endpoint)
+    assert r["status"] == "SLOW"
+    conn.close()
+
+
+def test_slow_check_still_counts_toward_uptime(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    endpoint = Endpoint(name="sluggish", url="https://example.com", latency_threshold_ms=200)
+    save_all(conn, [
+        make_result(name="sluggish", timestamp=1.0, success=True, latency_ms=900.0, slow=True),
+        make_result(name="sluggish", timestamp=2.0, success=True, latency_ms=100.0, slow=False),
+    ])
+
+    r = endpoint_report(conn, endpoint)
+    # slow is a warning, not a failure - it shouldn't drag uptime down
+    assert r["uptime_pct"] == 100.0
+    conn.close()
+
+
+def test_slow_check_shows_up_in_incidents(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    endpoint = Endpoint(name="sluggish", url="https://example.com", latency_threshold_ms=200)
+    save_all(conn, [make_result(name="sluggish", timestamp=1.0, success=True, latency_ms=900.0, slow=True)])
+
+    r = endpoint_report(conn, endpoint)
+    assert len(r["incidents"]) == 1
+    assert r["incidents"][0].slow is True
+
+    text = format_report([r])
+    assert "recent incidents" in text
+    assert "slow" in text
+    assert "900.0ms" in text

@@ -60,3 +60,39 @@ def test_check_all_runs_every_endpoint():
     results = check_all(endpoints, http_get=fake_get)
     assert len(results) == 2
     assert all(r.success for r in results)
+
+
+def test_not_slow_when_no_threshold_set():
+    # latency_threshold_ms defaults to None - no threshold means never slow
+    endpoint = Endpoint(name="ok", url="https://example.com")
+    fake_get = lambda url, timeout: FakeResponse(200)
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert result.slow is False
+
+
+def test_not_slow_when_under_threshold():
+    endpoint = Endpoint(name="ok", url="https://example.com", latency_threshold_ms=10_000)
+    fake_get = lambda url, timeout: FakeResponse(200)
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert result.slow is False
+
+
+def test_slow_when_latency_exceeds_threshold():
+    # a threshold below zero is guaranteed to be exceeded by any real
+    # (non-negative) latency, without needing to actually sleep in a test
+    endpoint = Endpoint(name="ok", url="https://example.com", latency_threshold_ms=-1)
+    fake_get = lambda url, timeout: FakeResponse(200)
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert result.success is True
+    assert result.slow is True
+
+
+def test_failure_is_never_marked_slow():
+    # a wrong status code is already a failure - slow only applies on top
+    # of an otherwise-successful check
+    endpoint = Endpoint(name="broken", url="https://example.com",
+                         expected_status=200, latency_threshold_ms=-1)
+    fake_get = lambda url, timeout: FakeResponse(500)
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert result.success is False
+    assert result.slow is False

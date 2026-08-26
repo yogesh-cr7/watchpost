@@ -1,3 +1,5 @@
+import sqlite3
+
 from watchpost.history import connect, recent_checks, save_all, save_result
 
 from helpers import make_result
@@ -82,4 +84,42 @@ def test_stores_failure_with_error_message(tmp_path):
     assert saved.success is False
     assert saved.status_code is None
     assert saved.error == "timed out"
+    conn.close()
+
+
+def test_stores_slow_flag(tmp_path):
+    conn = connect(tmp_path / "history.db")
+    save_result(conn, make_result(slow=True))
+
+    saved = recent_checks(conn, "api")[0]
+    assert saved.slow is True
+    conn.close()
+
+
+def test_upgrades_existing_db_missing_slow_column(tmp_path):
+    db_path = tmp_path / "history.db"
+
+    # simulate a history.db written before the slow column existed
+    old_conn = sqlite3.connect(str(db_path))
+    old_conn.execute("""
+        CREATE TABLE checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            endpoint_name TEXT NOT NULL,
+            url TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            success INTEGER NOT NULL,
+            status_code INTEGER,
+            latency_ms REAL,
+            error TEXT
+        )
+    """)
+    old_conn.commit()
+    old_conn.close()
+
+    conn = connect(db_path)  # should upgrade the existing table, not crash
+    save_result(conn, make_result())
+
+    rows = recent_checks(conn, "api")
+    assert len(rows) == 1
+    assert rows[0].slow is False
     conn.close()

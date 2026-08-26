@@ -26,7 +26,7 @@ failure and explain it in plain English.
 - [x] polling engine that hits each endpoint and records status + latency
 - [x] local history (sqlite) so uptime/latency show trends, not just the last check
 - [x] CLI report command - current status and recent incidents per endpoint
-- [ ] rule-based alerting when a check fails or latency crosses a threshold
+- [x] rule-based alerting when a check fails or latency crosses a threshold
 - [ ] optional webhook alert (Slack/Discord) behind a flag
 - [ ] optional LLM diagnosis behind a flag - reads a failure (status, body, recent history) and writes a plain-english guess at what went wrong
 - [ ] packaging - installable CLI, entry point
@@ -47,20 +47,28 @@ python -m watchpost.cli check
 ```
 
 See current status, uptime over the last 20 checks per endpoint, and any
-recent failures:
+recent failures or slow responses:
 
 ```bash
 python -m watchpost.cli report
 ```
 
 ```
-github-status        UP     200   310.0ms  uptime: 100.0%
-jsonplaceholder      UP     200   230.0ms  uptime: 100.0%
-github-api           UP     200   350.0ms  uptime: 50.0%
+github-status        UP     200   280.0ms  uptime: 100.0%
+jsonplaceholder      SLOW   200   3500.0ms uptime: 100.0%
+github-api           DOWN   503   900.0ms  uptime: 0.0%
 
 recent incidents:
-  github-api      2026-08-24 14:10   got 503
+  jsonplaceholder 2026-08-26 15:40   slow (3500.0ms)
+  github-api      2026-08-26 15:40   got 503
 ```
+
+An endpoint can carry an optional `latency_threshold_ms` in the config -
+a check that passes on status code but takes longer than that shows as
+`SLOW` instead of `UP` and lands in recent incidents, without dragging
+uptime down (it did respond, just slowly - that's a warning, not a
+failure). `check` exits non-zero if anything is actually `DOWN`, so it
+can gate a cron job or CI step; a `SLOW` result alone won't fail it.
 
 Both commands take `--config` and `--db` to point at a different config or
 history file; `report` also takes `--window` to change how many recent
@@ -68,13 +76,16 @@ checks the uptime number and incident list look back over (defaults to
 20 - a guess, not a measured number, worth revisiting once this has run
 for a while). Every run of `check` appends to `data/history.db` (sqlite,
 gitignored), so uptime and incidents build up real history instead of
-just reflecting the last check.
+just reflecting the last check. An existing history.db upgrades itself
+in place the first time you run against the new schema - no need to
+delete it.
 
 Not installable yet - run it as a module from the repo root, not as a
 standalone `watchpost` command. That's the packaging step, still ahead.
 
 ## status
 
-Config loader, polling engine, local history, and the check/report CLI
-are done, with tests. No alerting or LLM diagnosis yet, and not packaged
-as an installable command.
+Config loader, polling engine, local history, the check/report CLI, and
+rule-based alerting (failures plus a latency threshold) are done, with
+tests. No webhook or LLM diagnosis yet, and not packaged as an
+installable command.

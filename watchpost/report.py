@@ -19,11 +19,21 @@ def endpoint_report(conn, endpoint, window=DEFAULT_WINDOW):
 
     latest = checks[0]  # recent_checks orders newest first
     uptime_pct = round(100 * sum(c.success for c in checks) / len(checks), 1)
-    incidents = [c for c in checks if not c.success]
+
+    # a slow check isn't a failure - it still counts toward uptime - but it's
+    # still worth surfacing alongside real incidents
+    incidents = [c for c in checks if not c.success or c.slow]
+
+    if not latest.success:
+        status = "DOWN"
+    elif latest.slow:
+        status = "SLOW"
+    else:
+        status = "UP"
 
     return {
         "name": endpoint.name,
-        "status": "UP" if latest.success else "DOWN",
+        "status": status,
         "status_code": latest.status_code,
         "latency_ms": latest.latency_ms,
         "uptime_pct": uptime_pct,
@@ -54,7 +64,10 @@ def format_report(reports):
         lines.append("recent incidents:")
         for name, c in incidents:
             when = datetime.fromtimestamp(c.timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
-            reason = c.error if c.error else f"got {c.status_code}"
+            if not c.success:
+                reason = c.error if c.error else f"got {c.status_code}"
+            else:
+                reason = f"slow ({c.latency_ms}ms)"
             lines.append(f"  {name:<15} {when}   {reason}")
 
     return "\n".join(lines)

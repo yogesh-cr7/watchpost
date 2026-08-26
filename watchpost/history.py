@@ -20,15 +20,24 @@ def connect(db_path="data/history.db"):
             error TEXT
         )
     """)
+    _ensure_slow_column(conn)
     conn.commit()
     return conn
+
+
+def _ensure_slow_column(conn):
+    # slow got added after the table already shipped - upgrade an existing
+    # history.db in place instead of making people delete their data
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(checks)")}
+    if "slow" not in columns:
+        conn.execute("ALTER TABLE checks ADD COLUMN slow INTEGER NOT NULL DEFAULT 0")
 
 
 def save_result(conn, result):
     conn.execute(
         """
-        INSERT INTO checks (endpoint_name, url, timestamp, success, status_code, latency_ms, error)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO checks (endpoint_name, url, timestamp, success, status_code, latency_ms, error, slow)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             result.endpoint_name,
@@ -38,6 +47,7 @@ def save_result(conn, result):
             result.status_code,
             result.latency_ms,
             result.error,
+            int(result.slow),
         ),
     )
     conn.commit()
@@ -51,7 +61,7 @@ def save_all(conn, results):
 def recent_checks(conn, endpoint_name, limit=10):
     rows = conn.execute(
         """
-        SELECT endpoint_name, url, success, status_code, latency_ms, timestamp, error
+        SELECT endpoint_name, url, success, status_code, latency_ms, timestamp, error, slow
         FROM checks
         WHERE endpoint_name = ?
         ORDER BY timestamp DESC
@@ -69,6 +79,7 @@ def recent_checks(conn, endpoint_name, limit=10):
             latency_ms=row[4],
             timestamp=row[5],
             error=row[6],
+            slow=bool(row[7]),
         )
         for row in rows
     ]

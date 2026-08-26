@@ -1,17 +1,24 @@
 # default watch list - public APIs so this repo runs out of the box
 # without needing your own service to point it at
+#
+# latency_threshold_ms is optional - set generously here (3s for a plain
+# GET) since these are someone else's servers, not something to nag about
+# on every minor blip
 endpoints:
   - name: github-status
     url: https://www.githubstatus.com/api/v2/status.json
     expected_status: 200
     timeout: 5
+    latency_threshold_ms: 3000
 
   - name: jsonplaceholder
     url: https://jsonplaceholder.typicode.com/posts/1
     expected_status: 200
     timeout: 5
+    latency_threshold_ms: 3000
 
   - name: github-api
     url: https://api.github.com
     expected_status: 200
     timeout: 5
+    latency_threshold_ms: 3000

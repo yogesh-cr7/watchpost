@@ -14,6 +14,7 @@ class CheckResult:
     latency_ms: Optional[float]
     timestamp: float
     error: Optional[str] = None
+    slow: bool = False  # only ever set on an otherwise-successful check, see check_endpoint
 
 
 def check_endpoint(endpoint, http_get=requests.get):
@@ -35,7 +36,17 @@ def check_endpoint(endpoint, http_get=requests.get):
 
     latency_ms = round((time.monotonic() - start) * 1000, 1)
     success = response.status_code == endpoint.expected_status
-    return CheckResult(endpoint.name, endpoint.url, success, response.status_code, latency_ms, checked_at)
+
+    # a wrong status code is already a failure on its own terms - slow is a
+    # warning layered on top of an otherwise-healthy check, not a second way
+    # to fail the same check
+    slow = (
+        success
+        and endpoint.latency_threshold_ms is not None
+        and latency_ms > endpoint.latency_threshold_ms
+    )
+
+    return CheckResult(endpoint.name, endpoint.url, success, response.status_code, latency_ms, checked_at, slow=slow)
 
 
 def check_all(endpoints, http_get=requests.get):

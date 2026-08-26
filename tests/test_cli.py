@@ -1,4 +1,4 @@
-from watchpost.cli import cmd_report
+from watchpost.cli import any_down, cmd_report
 from watchpost.history import connect, save_all
 
 from helpers import make_result
@@ -41,3 +41,18 @@ def test_cmd_report_friendly_error_on_missing_config(tmp_path, capsys):
 
     assert exit_code == 1
     assert "not found" in err
+
+
+def test_any_down_true_when_something_failed():
+    results = [make_result(success=True), make_result(success=False, status_code=500)]
+    assert any_down(results) is True
+
+
+def test_any_down_false_when_all_succeeded():
+    results = [make_result(success=True), make_result(success=True)]
+    assert any_down(results) is False
+
+
+def test_any_down_ignores_slow_since_its_not_a_failure():
+    results = [make_result(success=True, slow=True)]
+    assert any_down(results) is False

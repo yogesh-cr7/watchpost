@@ -25,6 +25,7 @@ endpoints:
     assert ep.expected_status == 200
     assert ep.timeout == 5.0
     assert ep.interval == 60
+    assert ep.latency_threshold_ms is None
 
 
 def test_overrides_defaults(tmp_path):
@@ -35,11 +36,13 @@ endpoints:
     expected_status: 204
     timeout: 15
     interval: 300
+    latency_threshold_ms: 2000
 """)
     ep = load_config(path)[0]
     assert ep.expected_status == 204
     assert ep.timeout == 15
     assert ep.interval == 300
+    assert ep.latency_threshold_ms == 2000
 
 
 def test_name_defaults_to_url(tmp_path):

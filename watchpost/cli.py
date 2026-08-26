@@ -7,6 +7,10 @@ from watchpost.history import connect, save_all
 from watchpost.report import DEFAULT_WINDOW, build_report, format_report
 
 
+def any_down(results):
+    return any(not r.success for r in results)
+
+
 def cmd_check(args):
     try:
         endpoints = load_config(args.config)
@@ -18,10 +22,13 @@ def cmd_check(args):
     save_all(connect(args.db), results)
 
     for r in results:
-        status = "UP" if r.success else "DOWN"
+        status = "DOWN" if not r.success else ("SLOW" if r.slow else "UP")
         code = r.status_code if r.status_code is not None else "-"
         print(f"{r.endpoint_name:<20} {status:<6} {code}")
-    return 0
+
+    # non-zero only for a real failure, not a slow warning - keeps this
+    # usable as a cron/CI gate without a latency blip failing the job
+    return 1 if any_down(results) else 0
 
 
 def cmd_report(args):
