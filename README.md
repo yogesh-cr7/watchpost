@@ -27,7 +27,7 @@ failure and explain it in plain English.
 - [x] local history (sqlite) so uptime/latency show trends, not just the last check
 - [x] CLI report command - current status and recent incidents per endpoint
 - [x] rule-based alerting when a check fails or latency crosses a threshold
-- [ ] optional webhook alert (Slack/Discord) behind a flag
+- [x] optional webhook alert (Slack/Discord) behind a flag
 - [ ] optional LLM diagnosis behind a flag - reads a failure (status, body, recent history) and writes a plain-english guess at what went wrong
 - [ ] packaging - installable CLI, entry point
 - [ ] tests alongside each feature
@@ -83,9 +83,29 @@ delete it.
 Not installable yet - run it as a module from the repo root, not as a
 standalone `watchpost` command. That's the packaging step, still ahead.
 
+### webhook alerts
+
+```bash
+cp .env.example .env   # then fill in WATCHPOST_WEBHOOK_URL
+pip install python-dotenv
+python -m watchpost.cli check --alert
+```
+
+`--alert` sends a webhook notification, but only on a state change - once
+when an endpoint goes from up to down, once when it recovers. It stays
+quiet on every check in between while something's still broken, so it
+doesn't spam the channel for as long as an outage lasts. The very first
+check ever for an endpoint only alerts if it's already down - nobody
+needs a ping just because the first check happened to be fine. The
+payload sends both a `text` and a `content` field, so the same webhook
+URL works for either a Slack incoming webhook or a Discord webhook
+without a flag to pick one. A failed webhook delivery prints a warning
+and does not fail the check run itself - losing a notification is a lot
+better than losing a monitoring result over it.
+
 ## status
 
-Config loader, polling engine, local history, the check/report CLI, and
-rule-based alerting (failures plus a latency threshold) are done, with
-tests. No webhook or LLM diagnosis yet, and not packaged as an
-installable command.
+Config loader, polling engine, local history, the check/report CLI,
+rule-based alerting, and webhook notifications on state change are done,
+with tests. No LLM diagnosis yet, and not packaged as an installable
+command.

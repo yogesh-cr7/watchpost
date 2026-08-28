@@ -1,4 +1,4 @@
-from watchpost.cli import any_down, cmd_report
+from watchpost.cli import any_down, cmd_report, load_webhook_url
 from watchpost.history import connect, save_all
 
 from helpers import make_result
@@ -56,3 +56,17 @@ def test_any_down_false_when_all_succeeded():
 def test_any_down_ignores_slow_since_its_not_a_failure():
     results = [make_result(success=True, slow=True)]
     assert any_down(results) is False
+
+
+def test_load_webhook_url_returns_value_when_set(monkeypatch):
+    monkeypatch.setenv("WATCHPOST_WEBHOOK_URL", "https://hooks.slack.com/services/x")
+    assert load_webhook_url() == "https://hooks.slack.com/services/x"
+
+
+def test_load_webhook_url_missing_prints_friendly_error(monkeypatch, capsys):
+    monkeypatch.delenv("WATCHPOST_WEBHOOK_URL", raising=False)
+    result = load_webhook_url()
+    err = capsys.readouterr().err
+
+    assert result is None
+    assert "WATCHPOST_WEBHOOK_URL" in err
