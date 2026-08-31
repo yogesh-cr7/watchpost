@@ -5,8 +5,9 @@ from watchpost.config import Endpoint
 
 
 class FakeResponse:
-    def __init__(self, status_code):
+    def __init__(self, status_code, text=""):
         self.status_code = status_code
+        self.text = text
 
 
 def test_successful_check():
@@ -27,6 +28,40 @@ def test_wrong_status_code_is_a_failure():
     assert result.success is False
     assert result.status_code == 500
     assert result.error is None  # the request worked fine, just not the status we wanted
+
+
+def test_response_body_captured_on_failure():
+    endpoint = Endpoint(name="broken", url="https://example.com", expected_status=200)
+    fake_get = lambda url, timeout: FakeResponse(500, text='{"error": "internal server error"}')
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert result.response_body == '{"error": "internal server error"}'
+
+
+def test_response_body_not_captured_on_success():
+    # no point storing it (and bloating history.db) when nothing's wrong
+    endpoint = Endpoint(name="ok", url="https://example.com", expected_status=200)
+    fake_get = lambda url, timeout: FakeResponse(200, text="all good")
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert result.response_body is None
+
+
+def test_response_body_truncated_to_max_length():
+    endpoint = Endpoint(name="broken", url="https://example.com", expected_status=200)
+    huge_body = "x" * 5000
+    fake_get = lambda url, timeout: FakeResponse(500, text=huge_body)
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert len(result.response_body) == 500
+
+
+def test_response_body_not_captured_on_connection_failure():
+    # nothing to read - there was never a response object at all
+    endpoint = Endpoint(name="down", url="https://example.com")
+
+    def fake_get(url, timeout):
+        raise requests.exceptions.ConnectionError()
+
+    result = check_endpoint(endpoint, http_get=fake_get)
+    assert result.response_body is None
 
 
 def test_timeout_is_a_failure_with_no_status_code():

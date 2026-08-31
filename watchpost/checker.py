@@ -15,6 +15,9 @@ class CheckResult:
     timestamp: float
     error: Optional[str] = None
     slow: bool = False  # only ever set on an otherwise-successful check, see check_endpoint
+    response_body: Optional[str] = None  # only captured on failure, truncated - see check_endpoint
+
+MAX_BODY_CHARS = 500  # plenty for diagnosis context, not a full error page dump
 
 
 def check_endpoint(endpoint, http_get=requests.get):
@@ -46,7 +49,12 @@ def check_endpoint(endpoint, http_get=requests.get):
         and latency_ms > endpoint.latency_threshold_ms
     )
 
-    return CheckResult(endpoint.name, endpoint.url, success, response.status_code, latency_ms, checked_at, slow=slow)
+    # body only matters when something's wrong - no reason to store it (and
+    # bloat history.db) for every single healthy check
+    body = None if success else response.text[:MAX_BODY_CHARS]
+
+    return CheckResult(endpoint.name, endpoint.url, success, response.status_code, latency_ms, checked_at,
+                        slow=slow, response_body=body)
 
 
 def check_all(endpoints, http_get=requests.get):
