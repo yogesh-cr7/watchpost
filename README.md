@@ -28,7 +28,7 @@ failure and explain it in plain English.
 - [x] CLI report command - current status and recent incidents per endpoint
 - [x] rule-based alerting when a check fails or latency crosses a threshold
 - [x] optional webhook alert (Slack/Discord) behind a flag
-- [ ] optional LLM diagnosis behind a flag - reads a failure (status, body, recent history) and writes a plain-english guess at what went wrong
+- [x] optional LLM diagnosis behind a flag - reads a failure (status, body, recent history) and writes a plain-english guess at what went wrong
 - [ ] packaging - installable CLI, entry point
 - [ ] tests alongside each feature
 - [ ] polish pass - license, real verified usage output, known-limitations section
@@ -103,9 +103,37 @@ without a flag to pick one. A failed webhook delivery prints a warning
 and does not fail the check run itself - losing a notification is a lot
 better than losing a monitoring result over it.
 
+### LLM diagnosis
+
+```bash
+cp .env.example .env   # then fill in ANTHROPIC_API_KEY
+pip install python-dotenv anthropic
+python -m watchpost.cli check --diagnose
+```
+
+For every endpoint that's actually `DOWN` (not `SLOW` - that's a softer
+signal, not worth spending on), `--diagnose` hands the status code, the
+error, the response body (truncated to 500 characters), and the recent
+uptime percentage to Claude Haiku and prints back a 2-3 sentence guess at
+what's wrong and what to check first, instead of just a status code:
+
+```
+payments-api         DOWN   503
+  -> The upstream service is refusing connections and asking callers to
+     retry, which points to a rate limit or overload on their end rather
+     than a problem with this endpoint's config. Worth checking their
+     status page before assuming this repo is misconfigured.
+```
+
+Same shape as the webhook feature: opt-in via a flag, never runs (or
+spends anything) unless you pass `--diagnose`, and a failed diagnosis
+call prints a warning instead of failing the check run. The response
+body is only captured on a failed check in the first place - a healthy
+check never touches or stores it.
+
 ## status
 
 Config loader, polling engine, local history, the check/report CLI,
-rule-based alerting, and webhook notifications on state change are done,
-with tests. No LLM diagnosis yet, and not packaged as an installable
-command.
+rule-based alerting, webhook notifications, and LLM diagnosis are all
+done, with tests. Not packaged as an installable command yet - that's
+the last plan item before the polish pass.
