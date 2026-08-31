@@ -5,8 +5,9 @@ import sys
 from watchpost.alerting import detect_transition
 from watchpost.checker import check_all
 from watchpost.config import ConfigError, load_config
+from watchpost.diagnosis import DiagnosisError, diagnose_failure, make_model_caller
 from watchpost.history import connect, save_result
-from watchpost.report import DEFAULT_WINDOW, build_report, format_report
+from watchpost.report import DEFAULT_WINDOW, build_report, endpoint_report, format_report
 from watchpost.webhook import WebhookError, build_message, send_alert
 
 
@@ -28,6 +29,15 @@ def load_webhook_url():
     return url
 
 
+def load_anthropic_key():
+    """Same idea as load_webhook_url - pure, testable, doesn't touch .env itself."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        print("error: --diagnose needs ANTHROPIC_API_KEY set (add it to .env)", file=sys.stderr)
+        return None
+    return key
+
+
 def cmd_check(args):
     try:
         endpoints = load_config(args.config)
@@ -36,19 +46,29 @@ def cmd_check(args):
         return 1
 
     webhook_url = None
-    if args.alert:
+    call_model = None
+
+    if args.alert or args.diagnose:
         try:
             from dotenv import load_dotenv
             load_dotenv()
         except ImportError:
-            print("error: --alert needs python-dotenv - run: pip install python-dotenv", file=sys.stderr)
+            print("error: --alert/--diagnose need python-dotenv - run: pip install python-dotenv", file=sys.stderr)
             return 1
 
+    if args.alert:
         webhook_url = load_webhook_url()
         if webhook_url is None:
             return 1
 
+    if args.diagnose:
+        api_key = load_anthropic_key()
+        if api_key is None:
+            return 1
+        call_model = make_model_caller(api_key)
+
     conn = connect(args.db)
+    endpoints_by_name = {e.name: e for e in endpoints}
     results = check_all(endpoints)
 
     for r in results:
@@ -65,6 +85,14 @@ def cmd_check(args):
                     send_alert(webhook_url, build_message(r.endpoint_name, transition, r))
                 except WebhookError as e:
                     print(f"warning: webhook alert failed: {e}", file=sys.stderr)
+
+        if call_model and not r.success:
+            uptime_pct = endpoint_report(conn, endpoints_by_name[r.endpoint_name])["uptime_pct"]
+            try:
+                diagnosis = diagnose_failure(r.endpoint_name, r, call_model, uptime_pct=uptime_pct)
+                print(f"  -> {diagnosis}")
+            except DiagnosisError as e:
+                print(f"warning: diagnosis failed: {e}", file=sys.stderr)
 
     # non-zero only for a real failure, not a slow warning - keeps this
     # usable as a cron/CI gate without a latency blip failing the job
@@ -93,6 +121,8 @@ def build_parser():
     check_parser = sub.add_parser("check", help="run a check against every endpoint and save the result")
     check_parser.add_argument("--alert", action="store_true",
                                help="send a webhook alert on down/recovery (needs WATCHPOST_WEBHOOK_URL in .env)")
+    check_parser.add_argument("--diagnose", action="store_true",
+                               help="ask an LLM to explain each failure (needs ANTHROPIC_API_KEY in .env, costs money)")
 
     report_parser = sub.add_parser("report", help="show current status and recent incidents")
     report_parser.add_argument("--window", type=int, default=DEFAULT_WINDOW,

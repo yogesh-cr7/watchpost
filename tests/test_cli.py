@@ -1,4 +1,4 @@
-from watchpost.cli import any_down, cmd_report, load_webhook_url
+from watchpost.cli import any_down, cmd_report, load_anthropic_key, load_webhook_url
 from watchpost.history import connect, save_all
 
 from helpers import make_result
@@ -70,3 +70,17 @@ def test_load_webhook_url_missing_prints_friendly_error(monkeypatch, capsys):
 
     assert result is None
     assert "WATCHPOST_WEBHOOK_URL" in err
+
+
+def test_load_anthropic_key_returns_value_when_set(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test123")
+    assert load_anthropic_key() == "sk-ant-test123"
+
+
+def test_load_anthropic_key_missing_prints_friendly_error(monkeypatch, capsys):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    result = load_anthropic_key()
+    err = capsys.readouterr().err
+
+    assert result is None
+    assert "ANTHROPIC_API_KEY" in err

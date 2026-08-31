@@ -3,9 +3,9 @@ requests
 pyyaml
 pytest
 
-# optional: needed for `check --alert` (webhook notifications), and for
-# the LLM diagnosis flag once that lands
+# optional: needed for `check --alert` (webhook notifications) and
+# `check --diagnose` (LLM failure diagnosis) - both read .env
 # python-dotenv
 
-# optional, added when the LLM diagnosis flag lands:
+# optional: needed for `check --diagnose`
 # anthropic
