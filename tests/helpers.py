@@ -1,7 +1,8 @@
 from watchpost.checker import CheckResult
 
 
-def make_result(name="api", success=True, status_code=200, latency_ms=100.0, timestamp=1000.0, error=None, slow=False):
+def make_result(name="api", success=True, status_code=200, latency_ms=100.0, timestamp=1000.0,
+                 error=None, slow=False, response_body=None):
     return CheckResult(
         endpoint_name=name,
         url="https://example.com",
@@ -11,4 +12,5 @@ def make_result(name="api", success=True, status_code=200, latency_ms=100.0, tim
         timestamp=timestamp,
         error=error,
         slow=slow,
+        response_body=response_body,
     )
